@@ -107,7 +107,7 @@ namespace AntDesign
                     }
                     else if (!_isActive && MenuItem.IsSelected)
                     {
-                        MenuItem.Deselect();
+                        Menu.DeselectItem(MenuItem);
                     }
                 }
 

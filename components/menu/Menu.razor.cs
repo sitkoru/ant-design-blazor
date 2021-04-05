@@ -128,26 +128,7 @@ namespace AntDesign
             {
                 return;
             }
-            var selectedKeys = new List<string>();
-            bool skipParentSelection = false;
-            if (!Multiple)
-            {
-                foreach (MenuItem menuitem in MenuItems.Where(x => x != item))
-                {
-                    if (item.RouterLink != null && menuitem.RouterLink != null && menuitem.RouterLink.Equals(item.RouterLink) && !menuitem.IsSelected)
-                    {
-                        menuitem.Select();
-                        selectedKeys.Add(menuitem.Key);
-                    }
-                    else if (menuitem.IsSelected || menuitem.FirstRun)
-                    {
-                        if (!menuitem.FirstRun)
-                            skipParentSelection = item.ParentMenu?.Key == menuitem.ParentMenu?.Key;
-                        menuitem.Deselect(skipParentSelection);
-                    }
-                }
-            }
-
+           var selectedKeys = BuildSelectedKeys(item, out var skipParentSelection);
             if (!item.IsSelected)
             {
                 item.Select(skipParentSelection);
@@ -167,6 +148,58 @@ namespace AntDesign
             {
                 Overlay.Hide(true);
             }
+        }
+
+        public void DeselectItem(MenuItem item)
+        {
+            if (item == null || !item.IsSelected)
+            {
+                return;
+            }
+            var selectedKeys = BuildSelectedKeys(item, out var skipParentSelection);
+
+            if (item.IsSelected)
+            {
+                item.Deselect(skipParentSelection);
+            }
+            selectedKeys.Remove(item.Key);
+            _selectedKeys = selectedKeys.ToArray();
+
+            StateHasChanged();
+
+            if (SelectedKeysChanged.HasDelegate)
+                SelectedKeysChanged.InvokeAsync(_selectedKeys);
+
+            if (Overlay != null && AutoCloseDropdown)
+            {
+                Overlay.Hide(true);
+            }
+        }
+
+        private List<string> BuildSelectedKeys(MenuItem item, out bool skipParentSelection)
+        {
+            var selectedKeys = new List<string>();
+            skipParentSelection = false;
+            if (!Multiple)
+            {
+                foreach (MenuItem menuitem in MenuItems.Where(x => x != item))
+                {
+                    if (item.RouterLink != null && menuitem.RouterLink != null && menuitem.RouterLink.Equals(item.RouterLink) &&
+                        !menuitem.IsSelected)
+                    {
+                        menuitem.Select();
+                        selectedKeys.Add(menuitem.Key);
+                    }
+                    else if (menuitem.IsSelected || menuitem.FirstRun)
+                    {
+                        if (!menuitem.FirstRun)
+                            skipParentSelection = item.ParentMenu?.Key == menuitem.ParentMenu?.Key;
+                        menuitem.Deselect(skipParentSelection);
+                    }
+                }
+            }
+
+            return selectedKeys;
         }
 
         public void SelectSubmenu(SubMenu menu, bool isTitleClick = false)
