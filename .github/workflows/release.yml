@@ -64,6 +64,11 @@ jobs:
         env:
           patch_version: ${{ steps.semvers.outputs.patch }}
           minor_version: ${{ steps.semvers.outputs.minor }}
+      
+      - name: Build web static assets
+        run: |
+          npm ci
+          npm run gulp:components
 
       - name: Package Nuget 📦
         id: pack
