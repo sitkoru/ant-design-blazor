@@ -5,23 +5,26 @@ env:
 
 on:
   push:
-    tags:
-      - '*'
+    branches:
+      - sitko-package
 
 jobs:
-  release-and-publish-package:
+  publish-and-deploy:
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'ant-design-blazor'
+    if: github.repository_owner == 'sitkoru'
 
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout 🛎️
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
 
-      - name: Setup .NET Core
+      - name: Setup .NET Core 3.1
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 3.1.300
 
-      - name: Setup .NET 5
+      - name: Setup .NET Core 5.0
         uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 5.0.100
@@ -30,49 +33,48 @@ jobs:
         with:
           node-version: "10.x"
 
-      - name: Package and publish to Nuget📦
+      - name: 'Get Last Release'
+        id: previoustag
+        run: |
+          LAST_VERSION=$(wget --no-check-certificate -qO- https://api.github.com/repos/ant-design-blazor/ant-design-blazor/tags | grep 'name' | cut -d\" -f4 | head -1)
+          echo "Last Version: ${LAST_VERSION}"
+          echo "::set-output name=previous_tag::${LAST_VERSION}"
+
+      - name: 'Get Next Semantic Version'
+        id: semvers
+        uses: "WyriHaximus/github-action-next-semvers@v1"
+        with:
+          version: ${{ steps.previoustag.outputs.previous_tag }}
+
+      - name: 'Get Next Version'
+        id: get_next_version
+        run: |
+          current_branch=$(git symbolic-ref --short -q HEAD)
+          echo Current git branch is $current_branch
+          next_version=''
+          if [ "$current_branch" == 'master' ] ; 
+            then
+              next_version=$patch_version
+            else
+              next_version=$minor_version
+          fi
+          echo Will release version $next_version for branch $current_branch
+          echo "::set-output name=next_version::${next_version}"
+          echo "::set-output name=current_branch::${current_branch}"
+        env:
+          patch_version: ${{ steps.semvers.outputs.patch }}
+          minor_version: ${{ steps.semvers.outputs.minor }}
+
+      - name: Package Nuget 📦
         id: pack
         run: |
-          VERSION=`git describe --tags`
-          echo "Publishing Version: ${VERSION}"
-          echo "::set-output name=package_version::${VERSION}"
-          npm install
-          dotnet build
-          dotnet pack components/AntDesign.csproj /p:PackageVersion=$VERSION -c Release -o publish
-          dotnet nuget push publish/*.nupkg -s https://api.nuget.org/v3/index.json -k $NUGET_API_KEY --skip-duplicate
-
-      - name: Publish Docs 🎉
-        run: |
-          echo "/* updated `date "+%Y-%m-%d %H:%M:%S"` */" >> ./site/AntDesign.Docs.Wasm/wwwroot/service-worker.published.js
-          cp -rf scripts/gh-pages/* scripts/gh-pages/.nojekyll scripts/gh-pages/.spa ./site/AntDesign.Docs.Wasm/wwwroot
-          sed -i s/{version}/$PACKAGE_VERSION/g ./site/AntDesign.Docs.Wasm/wwwroot/index.html
-          sed -i s/{version}/$PACKAGE_VERSION/g ./site/AntDesign.Docs/Shared/HeaderMenu.razor
-          dotnet publish ./site/AntDesign.Docs.Wasm -c Release -f net5 -o cargo
+          FULL_VERSION=$next_version-nightly-`date "+%y%m%d%H%M"`
+          echo "Version: ${FULL_VERSION}"
+          echo "::set-output name=package_version::${FULL_VERSION}"
+          dotnet pack components/AntDesign.csproj /p:PackageVersion=${FULL_VERSION} -c Release -o publish
         env:
-          PACKAGE_VERSION: ${{ steps.pack.outputs.package_version }}
+          next_version: ${{ steps.get_next_version.outputs.next_version }}
 
-      - name: Deploy 🚀
-        uses: JamesIves/github-pages-deploy-action@releases/v3
-        with:
-          ACCESS_TOKEN: ${{ secrets.GH_PUSH_TOKEN }}
-          BRANCH: gh-pages
-          FOLDER: cargo/wwwroot
+      - name: Push to Nuget
+        run: dotnet nuget push ./publish/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.MYGET_API_KEY }} --skip-duplicate
 
-      - name: Deploy to Github.io 🚀
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          personal_token: ${{ secrets.GH_PUSH_TOKEN }}
-          external_repository: ant-design-blazor/ant-design-blazor.github.io
-          publish_branch: master
-          publish_dir: ./cargo/wwwroot
-          cname: antblazor.com
-          keep_files: true
-          tag_name: ${{ steps.pack.outputs.package_version }}
-
-      - name: Sync to Gitee 💕
-        uses: wearerequired/git-mirror-action@master
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.GITEE_PRIVATE_KEY }}
-        with:
-          source-repo: "git@github.com:ant-design-blazor/ant-design-blazor.git"
-          destination-repo: "git@gitee.com:ant-design-blazor/ant-design-blazor.git"
