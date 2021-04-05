@@ -67,7 +67,7 @@ jobs:
       
       - name: Build web static assets
         run: |
-          npm ci
+          npm install
           npm run gulp:components
 
       - name: Package Nuget 📦
