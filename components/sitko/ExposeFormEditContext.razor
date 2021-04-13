@@ -1,5 +1,7 @@
 ﻿@using AntDesign.Internal
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.Extensions.Logging
+@inject ILogger<ExposeFormEditContext> _logger
 @namespace AntDesign
 <span data-context-id="@EditContext.GetHashCode()"></span>
 
@@ -9,8 +11,10 @@
     [CascadingParameter(Name = "Form")]
     protected IForm Form { get; set; }
 
-    protected override Task OnParametersSetAsync()
+    public override Task SetParametersAsync(ParameterView parameters)
     {
+        parameters.SetParameterProperties(this);
+
         if (EditContext == null)
         {
             if (Form?.EditContext == null)
@@ -19,11 +23,11 @@
             }
 
             EditContext = Form?.EditContext;
+            _logger.LogDebug("New EditContext: {HashCode}", EditContext.GetHashCode());
         }
         else if (Form?.EditContext != EditContext)
         {
-            throw new InvalidOperationException($"{GetType()} does not support changing the " +
-                                                $"{nameof(EditContext)} dynamically.");
+            _logger.LogDebug("New EditContext: {NewHashCode}. Old EditContext: {OldHashCode}", Form?.EditContext?.GetHashCode(), EditContext.GetHashCode());
         }
 
         return base.SetParametersAsync(ParameterView.Empty);
