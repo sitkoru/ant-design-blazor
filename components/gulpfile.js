@@ -17,6 +17,14 @@ gulp.task('less', function () {
     .pipe(gulp.dest('wwwroot/css'));
 });
 
+gulp.task('lessdark', function () {
+    return gulp
+        .src('ant-design-blazor-dark.less')
+        .pipe(less({ javascriptEnabled: true }))
+        .pipe(cleanCss({ compatibility: 'ie8' }))
+        .pipe(gulp.dest('wwwroot/css'));
+});
+
 gulp.task('ts', function () {
   return browserify({
     basedir: '.',
@@ -43,4 +51,4 @@ gulp.task('src', function () {
   return gulp.src(['**/*.less', '!wwwroot/**']).pipe(gulp.dest('wwwroot/less'));
 });
 
-gulp.task('default', gulp.parallel('less', 'ts', 'src'), function () { });
+gulp.task('default', gulp.parallel('less', 'lessdark', 'ts', 'src'), function () { });
