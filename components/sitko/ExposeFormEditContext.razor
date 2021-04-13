@@ -1,0 +1,32 @@
+﻿@using AntDesign.Internal
+@using Microsoft.AspNetCore.Components.Forms
+@namespace AntDesign
+<span data-context-id="@EditContext.GetHashCode()"></span>
+
+@code {
+    protected EditContext EditContext { get; set; }
+
+    [CascadingParameter(Name = "Form")]
+    protected IForm Form { get; set; }
+
+    protected override Task OnParametersSetAsync()
+    {
+        if (EditContext == null)
+        {
+            if (Form?.EditContext == null)
+            {
+                return base.SetParametersAsync(ParameterView.Empty);
+            }
+
+            EditContext = Form?.EditContext;
+        }
+        else if (Form?.EditContext != EditContext)
+        {
+            throw new InvalidOperationException($"{GetType()} does not support changing the " +
+                                                $"{nameof(EditContext)} dynamically.");
+        }
+
+        return base.SetParametersAsync(ParameterView.Empty);
+    }
+
+}
