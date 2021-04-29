@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Text.Json;
 using System.Threading.Tasks;
 using AntDesign.JsInterop;
@@ -10,6 +11,8 @@ namespace AntDesign
     public partial class TextArea : Input<string>
     {
         private const uint DEFAULT_MIN_ROWS = 1;
+
+        protected override string InputType => "textarea";
 
         /// <summary>
         /// scrollHeight of 1 row
@@ -26,11 +29,11 @@ namespace AntDesign
         private bool _hasMinOrMaxSet;
         private DotNetObjectReference<TextArea> _reference;
 
-
         [Parameter]
         public bool AutoSize { get; set; }
 
-
+        [Parameter]
+        public bool DefaultToEmptyString { get; set; }
 
         [Parameter]
         public uint MinRows
@@ -79,6 +82,18 @@ namespace AntDesign
         [Parameter]
         public EventCallback<OnResizeEventArgs> OnResize { get; set; }
 
+        private ClassMapper _warpperClassMapper = new ClassMapper();
+
+        protected override void OnInitialized()
+        {
+            base.OnInitialized();
+
+            _warpperClassMapper
+                .Get(() => $"{PrefixCls}-affix-wrapper")
+                .Get(() => $"{PrefixCls}-affix-wrapper-textarea-with-clear-btn")
+                .GetIf(() => $"{PrefixCls}-affix-wrapper-rtl", () => RTL);
+        }
+
         protected async override Task OnFirstAfterRenderAsync()
         {
             await base.OnFirstAfterRenderAsync();
@@ -91,6 +106,36 @@ namespace AntDesign
             }
         }
 
+        protected override bool TryParseValueFromString(string value, out string result, out string validationErrorMessage)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                if (DefaultToEmptyString)
+                    result = string.Empty;
+                else
+                    result = default;
+                validationErrorMessage = null;
+                return true;
+            }
+
+            var success = BindConverter.TryConvertTo<string>(
+               value, CultureInfo.CurrentCulture, out var parsedValue);
+
+            if (success)
+            {
+                result = parsedValue;
+                validationErrorMessage = null;
+
+                return true;
+            }
+            else
+            {
+                result = default;
+                validationErrorMessage = $"{FieldIdentifier.FieldName} field isn't valid.";
+
+                return false;
+            }
+        }
 
         protected override void Dispose(bool disposing)
         {
@@ -109,9 +154,10 @@ namespace AntDesign
         }
 
         /// <summary>
-        /// Indicates that a page is being refreshed 
+        /// Indicates that a page is being refreshed
         /// </summary>
         private bool _isReloading;
+
         private void Reloading(JsonElement jsonElement) => _isReloading = true;
 
         [JSInvokable]
@@ -128,9 +174,9 @@ namespace AntDesign
             }
             var textAreaInfo = await JsInvokeAsync<TextAreaInfo>(JSInteropConstants.RegisterResizeTextArea, Ref, MinRows, MaxRows, _reference);
 
-//            var textAreaInfo = await JsInvokeAsync<TextAreaInfo>(JSInteropConstants.GetTextAreaInfo, Ref);
+            //            var textAreaInfo = await JsInvokeAsync<TextAreaInfo>(JSInteropConstants.GetTextAreaInfo, Ref);
             _rowHeight = textAreaInfo.LineHeight;
-            _offsetHeight = textAreaInfo.PaddingTop + textAreaInfo.PaddingBottom 
+            _offsetHeight = textAreaInfo.PaddingTop + textAreaInfo.PaddingBottom
                 + textAreaInfo.BorderTop + textAreaInfo.BorderBottom;
 
             uint rows = (uint)(textAreaInfo.ScrollHeight / _rowHeight);

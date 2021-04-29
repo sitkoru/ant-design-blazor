@@ -1,3 +1,11 @@
+import * as observable from './ObservableApi/observableApi';
+
+export { observable };
+
+export function isResizeObserverSupported(): boolean {  
+  return "ResizeObserver" in window;
+}
+
 export function getDom(element) {
   if (!element) {
     element = document.body;
@@ -27,6 +35,7 @@ export function getDomInfo(element) {
   result["clientLeft"] = dom.clientLeft || 0;
   result["clientHeight"] = dom.clientHeight || 0;
   result["clientWidth"] = dom.clientWidth || 0;
+  result["selectionStart"] = dom.selectionStart || 0;
   var absolutePosition = getElementAbsolutePos(dom);
   result["absoluteTop"] = Math.round(absolutePosition.y);
   result["absoluteLeft"] = Math.round(absolutePosition.x);
@@ -78,7 +87,7 @@ export function getFileInfo(element) {
     var fileInfo = [];
     for (var i = 0; i < element.files.length; i++) {
       var file = element.files[i];
-      var objectUrl = getObjectURL(element);
+      var objectUrl = getObjectURL(file);
       fileInfo.push({
         fileName: file.name,
         size: file.size,
@@ -91,9 +100,8 @@ export function getFileInfo(element) {
   }
 }
 
-export function getObjectURL(element) {
+export function getObjectURL(file: File) {
   var url = null;
-  var file = element.files[0];
   if (window.URL != undefined) {
     url = window.URL.createObjectURL(file);
   } else if (window.webkitURL != undefined) {
@@ -166,7 +174,7 @@ export function addDomEventListener(element, eventName, preventDefault, invoker)
       if (v instanceof Window) return 'Window';
       return v;
     }, ' ');
-    invoker.invokeMethodAsync('Invoke', json);
+    setTimeout(function () { invoker.invokeMethodAsync('Invoke', json) }, 0);
     if (preventDefault === true) {
       args.preventDefault();
     }
@@ -223,9 +231,18 @@ export function copy(text) {
   });
 }
 
-export function focus(selector) {
+export function focus(selector, noScroll: boolean = false) {
   let dom = getDom(selector);
-  dom.focus();
+  if (!(dom instanceof HTMLElement))
+    throw new Error("Unable to focus an invalid element.");
+  dom.focus({
+    preventScroll: noScroll
+  })
+}
+
+export function hasFocus(selector) {
+  let dom = getDom(selector);
+  return (document.activeElement === dom);
 }
 
 export function blur(selector) {
@@ -485,7 +502,7 @@ export function getMaxZIndex() {
   return [...document.all].reduce((r, e) => Math.max(r, +window.getComputedStyle(e).zIndex || 0), 0)
 }
 
-export function getStyle(element, styleProp) {        
+export function getStyle(element, styleProp) {
   if (element.currentStyle)
     return element.currentStyle[styleProp];
   else if (window.getComputedStyle)
@@ -493,9 +510,9 @@ export function getStyle(element, styleProp) {
 }
 
 export function getTextAreaInfo(element) {
-    var result = {};
-    var dom = getDom(element);
-    result["scrollHeight"] = dom.scrollHeight || 0;
+  var result = {};
+  var dom = getDom(element);
+  result["scrollHeight"] = dom.scrollHeight || 0;
 
   if (element.currentStyle) {
     result["lineHeight"] = parseFloat(element.currentStyle["line-height"]);
@@ -511,61 +528,62 @@ export function getTextAreaInfo(element) {
     result["borderBottom"] = parseFloat(document.defaultView.getComputedStyle(element, null).getPropertyValue("border-bottom"));
     result["borderTop"] = parseFloat(document.defaultView.getComputedStyle(element, null).getPropertyValue("border-top"));
   }
+  //Firefox can return this as NaN, so it has to be handled here like that.
+  if (Object.is(NaN, result["borderTop"]))
+    result["borderTop"] = 1;
+  if (Object.is(NaN, result["borderBottom"]))
+    result["borderBottom"] = 1;
   return result;
 }
-
 
 const funcDict = {};
 
 export function registerResizeTextArea(element, minRows, maxRows, objReference) {
-    if (!objReference) {
-        disposeResizeTextArea(element);
-    }
-    else {
-        objReferenceDict[element.id] = objReference;
-        funcDict[element.id + "input"] = function () { resizeTextArea(element, minRows, maxRows); }
-        element.addEventListener("input", funcDict[element.id + "input"]);
-        return getTextAreaInfo(element);
-    }
+  if (!objReference) {
+    disposeResizeTextArea(element);
+  }
+  else {
+    objReferenceDict[element.id] = objReference;
+    funcDict[element.id + "input"] = function () { resizeTextArea(element, minRows, maxRows); }
+    element.addEventListener("input", funcDict[element.id + "input"]);
+    return getTextAreaInfo(element);
+  }
 }
 
 export function disposeResizeTextArea(element) {
-    element.removeEventListener("input", funcDict[element.id + "input"]);
-    objReferenceDict[element.id] = null;
-    funcDict[element.id + "input"] = null;
-
+  element.removeEventListener("input", funcDict[element.id + "input"]);
+  objReferenceDict[element.id] = null;
+  funcDict[element.id + "input"] = null;
 }
 
 export function resizeTextArea(element, minRows, maxRows) {
-    var dims = getTextAreaInfo(element);
-    var rowHeight = dims["lineHeight"];
-    var offsetHeight = dims["paddingTop"] + dims["paddingBottom"] + dims["borderTop"] + dims["borderBottom"];
-    var oldHeight = parseFloat(element.style.height);
-    element.style.height = 'auto';
-    
-    var rows = Math.trunc(element.scrollHeight / rowHeight);
-    rows = Math.max(minRows, rows);
+  var dims = getTextAreaInfo(element);
+  var rowHeight = dims["lineHeight"];
+  var offsetHeight = dims["paddingTop"] + dims["paddingBottom"] + dims["borderTop"] + dims["borderBottom"];
+  var oldHeight = parseFloat(element.style.height);
+  element.style.height = 'auto';
 
-    var newHeight = 0;
-    if (rows > maxRows) {
-        rows = maxRows;
+  var rows = Math.trunc(element.scrollHeight / rowHeight);
+  rows = Math.max(minRows, rows);
 
-        newHeight = (rows * rowHeight + offsetHeight);
-        element.style.height = newHeight + "px";
-        element.style.overflowY = "visible";
-    }
-    else {
-        newHeight = rows * rowHeight + offsetHeight;
-        element.style.height = newHeight + "px";
-        element.style.overflowY = "hidden";
-    }
-    if (oldHeight !== newHeight) {
-        let textAreaObj = objReferenceDict[element.id];
-        textAreaObj.invokeMethodAsync("ChangeSizeAsyncJs", parseFloat(element.scrollWidth), newHeight);
-    }
+  var newHeight = 0;
+  if (rows > maxRows) {
+    rows = maxRows;
+
+    newHeight = (rows * rowHeight + offsetHeight);
+    element.style.height = newHeight + "px";
+    element.style.overflowY = "visible";
+  }
+  else {
+    newHeight = rows * rowHeight + offsetHeight;
+    element.style.height = newHeight + "px";
+    element.style.overflowY = "hidden";
+  }
+  if (oldHeight !== newHeight) {
+    let textAreaObj = objReferenceDict[element.id];
+    textAreaObj.invokeMethodAsync("ChangeSizeAsyncJs", parseFloat(element.scrollWidth), newHeight);
+  }
 }
-
-
 
 const objReferenceDict = {};
 export function disposeObj(objReferenceName) {
@@ -619,16 +637,20 @@ function preventKeys(e, keys: string[]) {
 }
 
 export function addPreventKeys(inputElement, keys: string[]) {
-  let dom = getDom(inputElement);   
-  keys = keys.map(function (x) { return x.toUpperCase(); })
-  funcDict[inputElement.id + "keydown"] = (e) => preventKeys(e, keys);
+  if (inputElement) {
+    let dom = getDom(inputElement);
+    keys = keys.map(function (x) { return x.toUpperCase(); })
+    funcDict[inputElement.id + "keydown"] = (e) => preventKeys(e, keys);
     (dom as HTMLElement).addEventListener("keydown", funcDict[inputElement.id + "keydown"], false);
+  }
 }
 
 export function removePreventKeys(inputElement) {
-  let dom = getDom(inputElement);            
-  (dom as HTMLElement).removeEventListener("keydown", funcDict[inputElement.id + "keydown"]);
-  funcDict[inputElement.id + "keydown"] = null;
+  if (inputElement) {
+    let dom = getDom(inputElement);
+    (dom as HTMLElement).removeEventListener("keydown", funcDict[inputElement.id + "keydown"]);
+    funcDict[inputElement.id + "keydown"] = null;
+  }
 }
 
 function preventKeyOnCondition(e, key: string, check: () => boolean) {
@@ -639,13 +661,52 @@ function preventKeyOnCondition(e, key: string, check: () => boolean) {
 }
 
 export function addPreventEnterOnOverlayVisible(element, overlayElement) {
-  let dom = getDom(element);   
-  funcDict[element.id + "keydown:Enter"] = (e) => preventKeyOnCondition(e, "enter", () => overlayElement.offsetParent !== null);
-  (dom as HTMLElement).addEventListener("keydown", funcDict[element.id + "keydown:Enter"], false);
+  if (element && overlayElement) {
+    let dom = getDom(element);
+    funcDict[element.id + "keydown:Enter"] = (e) => preventKeyOnCondition(e, "enter", () => overlayElement.offsetParent !== null);
+    (dom as HTMLElement).addEventListener("keydown", funcDict[element.id + "keydown:Enter"], false);
+  }
 }
 
 export function removePreventEnterOnOverlayVisible(element) {
+  if (element) {
+    let dom = getDom(element);
+    (dom as HTMLElement).removeEventListener("keydown", funcDict[element.id + "keydown:Enter"]);
+    funcDict[element.id + "keydown:Enter"] = null;
+  }
+}
+
+export function setDomAttribute(element, attributes) {
   let dom = getDom(element);
-  (dom as HTMLElement).removeEventListener("keydown", funcDict[element.id + "keydown:Enter"]);
-  funcDict[element.id + "keydown:Enter"] = null;
+  for (var key in attributes) {
+    (dom as HTMLElement).setAttribute(key, attributes[key]);
+  }
+}
+
+export function setSelectionStart(element, position) {
+  if (position >= 0) {
+    let dom = getDom(element);
+    if (position <= dom.value.length) {
+      dom.selectionStart = position;
+      dom.selectionEnd = position;
+    }
+  }
+}
+
+//copied from https://www.telerik.com/forums/trigger-tab-key-when-enter-key-is-pressed
+export function invokeTabKey() {  
+  var currInput = document.activeElement;
+  if (currInput.tagName.toLowerCase() == "input") {
+    var inputs = document.getElementsByTagName("input");
+    var currInput = document.activeElement;
+    for (var i = 0; i < inputs.length; i++) {
+      if (inputs[i] == currInput) {
+        var next = inputs[i + 1];
+        if (next && next.focus) {
+          next.focus();
+        }
+        break;
+      }
+    }
+  }
 }

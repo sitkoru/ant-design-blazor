@@ -29,6 +29,11 @@ namespace AntDesign
         public Func<Task> AfterClose { get; set; } = () => Task.CompletedTask;
 
         /// <summary>
+        /// ant-modal style
+        /// </summary>
+        public string Style { get; set; }
+
+        /// <summary>
         /// ant-modal-body style
         /// </summary>
         public string BodyStyle { get; set; }
@@ -56,7 +61,26 @@ namespace AntDesign
         /// <summary>
         /// Whether to apply loading visual effect for OK button or not
         /// </summary>
-        public bool ConfirmLoading { get; set; }
+        public bool ConfirmLoading
+        {
+            get
+            {
+                if (OkButtonProps != null)
+                {
+                    return OkButtonProps.Loading;
+                }
+                return false;
+            }
+            set
+            {
+                if (OkButtonProps == null)
+                {
+                    OkButtonProps = new ButtonProps();
+                }
+
+                OkButtonProps.Loading = true;
+            }
+        }
 
         /// <summary>
         /// Whether to remove Modal from DOM after the Modal closed

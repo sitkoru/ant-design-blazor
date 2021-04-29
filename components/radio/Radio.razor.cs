@@ -55,7 +55,8 @@ namespace AntDesign
                 .If($"{prefixCls}-wrapper-checked", () => IsChecked && !RadioButton)
                 .If($"{prefixCls}-button-wrapper-checked", () => IsChecked && RadioButton)
                 .If($"{prefixCls}-wrapper-disabled", () => Disabled && !RadioButton)
-                .If($"{prefixCls}-button-wrapper-disabled", () => Disabled && RadioButton);
+                .If($"{prefixCls}-button-wrapper-disabled", () => Disabled && RadioButton)
+                .If($"{prefixCls}-button-wrapper-rtl", () => RTL);
 
             RadioClassMapper.Clear()
                 .If(prefixCls, () => !RadioButton)
@@ -63,7 +64,8 @@ namespace AntDesign
                 .If($"{prefixCls}-disabled", () => Disabled && !RadioButton)
                 .If($"{prefixCls}-button", () => RadioButton)
                 .If($"{prefixCls}-button-checked", () => IsChecked && RadioButton)
-                .If($"{prefixCls}-button-disabled", () => Disabled && RadioButton);
+                .If($"{prefixCls}-button-disabled", () => Disabled && RadioButton)
+                .If($"{prefixCls}-rtl", () => RTL);
 
             InputClassMapper.Clear()
                 .If($"{prefixCls}-input", () => !RadioButton)
@@ -97,7 +99,7 @@ namespace AntDesign
         {
             if (this.AutoFocus)
             {
-                await this.Focus();
+                await FocusAsync(this.InputRef);
             }
 
             await base.OnFirstAfterRenderAsync();
@@ -138,11 +140,6 @@ namespace AntDesign
             {
                 await Select();
             }
-        }
-
-        protected async Task Focus()
-        {
-            await JsInvokeAsync(JSInteropConstants.Focus, this.InputRef);
         }
 
         protected async Task Blur()

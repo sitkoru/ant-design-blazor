@@ -11,6 +11,7 @@ namespace AntDesign
     public partial class Carousel : AntDomComponentBase
     {
         private const string PrefixCls = "ant-carousel";
+
         private string TrackStyle
         {
             get
@@ -35,8 +36,9 @@ namespace AntDesign
                 return string.Empty;
             }
         }
+
         internal string SlickClonedStyle => $"width: {SlickWidth}px;";
-        private string SlickListStyle => IsHorizontal ? string.Empty : $"height: {SlickHeight}px";       
+        private string SlickListStyle => IsHorizontal ? string.Empty : $"height: {SlickHeight}px";
         internal int SlickWidth { get; set; } = -1;
         private int SlickHeight { get; set; } = -1;
         private int TotalWidth => SlickWidth * (_slicks.Count * 2 + 1);
@@ -100,7 +102,8 @@ namespace AntDesign
 
             ClassMapper.Clear()
                 .Add(PrefixCls)
-                .If($"{PrefixCls}-vertical", () => !IsHorizontal);
+                .If($"{PrefixCls}-vertical", () => !IsHorizontal)
+                .If($"{PrefixCls}-rtl", () => RTL); ;
         }
 
         protected override void OnParametersSet()
@@ -134,13 +137,13 @@ namespace AntDesign
         private async void Resize(JsonElement e = default)
         {
             DomRect listRect = await JsInvokeAsync<DomRect>(JSInteropConstants.GetBoundingClientRect, Ref);
-            if ((SlickWidth != (int)listRect.width && IsHorizontal)
-                || (SlickHeight != (int)listRect.height && !IsHorizontal)
+            if ((SlickWidth != (int)listRect.Width && IsHorizontal)
+                || (SlickHeight != (int)listRect.Height && !IsHorizontal)
                 || IsHorizontal && !string.IsNullOrEmpty(SlickListStyle)
                 || !IsHorizontal && string.IsNullOrEmpty(SlickListStyle))
             {
-                SlickWidth = (int)listRect.width;
-                SlickHeight = (int)listRect.height;
+                SlickWidth = (int)listRect.Width;
+                SlickHeight = (int)listRect.Height;
                 StateHasChanged();
             }
         }
